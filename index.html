@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<title>ClipMaster — Editor de vídeo</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1020;--panel:#151c2f;--panel2:#202a42;--text:#f5f7ff;--muted:#aab5cc;--accent:#7c5cff;--line:#303b56}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{padding:18px 16px 14px;background:#10172a;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.brand{font-size:22px;font-weight:800;letter-spacing:.2px}.brand span{color:#9d8aff}.sub{color:var(--muted);font-size:12px;margin-top:3px}
+main{max-width:900px;margin:auto;padding:14px;display:grid;gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px}
+h2{font-size:16px;margin:0 0 12px}label{display:block;font-size:13px;color:var(--muted);margin:12px 0 6px}
+input[type=file]{width:100%;font-size:13px;color:var(--muted)}input[type=text],input[type=number],select{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;background:#0d1425;color:var(--text)}
+input[type=range]{width:100%;accent-color:var(--accent)}button{border:0;border-radius:11px;padding:12px 14px;background:var(--accent);color:white;font-weight:700;font-size:14px;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}.secondary{background:var(--panel2);border:1px solid var(--line)}.danger{background:#873b58}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.previewWrap{background:#05070c;border-radius:12px;overflow:hidden;display:grid;place-items:center;min-height:180px}
+video{display:block;max-width:100%;max-height:55vh;background:#05070c}canvas{display:none}.status{font-size:13px;color:var(--muted);line-height:1.45;margin-top:10px;overflow-wrap:anywhere}.status strong{color:var(--text)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.value{font-variant-numeric:tabular-nums;color:var(--text);font-weight:700}.note{font-size:12px;line-height:1.5;color:var(--muted);background:#10172a;border-radius:10px;padding:10px;margin-top:12px}
+progress{width:100%;height:10px;accent-color:var(--accent);display:none}
+@media(min-width:720px){main{grid-template-columns:1.1fr .9fr;align-items:start}.wide{grid-column:1/-1}.previewWrap{min-height:280px}}
+</style>
+</head>
+<body>
+<header><div class="brand">Clip<span>Master</span></div><div class="sub">Editor simples • funciona localmente no seu navegador</div></header>
+<main>
+<section class="card">
+<h2>1. Seu vídeo</h2>
+<label for="videoFile">Escolher vídeo do celular</label>
+<input id="videoFile" type="file" accept="video/*">
+<div class="previewWrap" style="margin-top:12px"><video id="video" controls playsinline></video></div>
+<div class="status" id="videoInfo">Escolha um vídeo para começar. O arquivo fica no seu dispositivo.</div>
+<div class="actions"><button id="playBtn" class="secondary" disabled>Reproduzir seleção</button><button id="resetBtn" class="secondary" disabled>Limpar projeto</button></div>
+</section>
+<section class="card">
+<h2>2. Cortar vídeo</h2>
+<div class="grid2">
+<div><label for="startRange">Início: <span class="value" id="startLabel">0.0 s</span></label><input id="startRange" type="range" min="0" max="0" step="0.1" value="0" disabled></div>
+<div><label for="endRange">Fim: <span class="value" id="endLabel">0.0 s</span></label><input id="endRange" type="range" min="0" max="0" step="0.1" value="0" disabled></div>
+</div>
+<div class="status">Ajuste o início e o fim. A exportação tentará salvar somente o trecho selecionado.</div>
+</section>
+<section class="card">
+<h2>3. Texto no vídeo</h2>
+<label for="overlayText">Texto para aparecer</label><input id="overlayText" type="text" maxlength="120" placeholder="Digite seu texto aqui">
+<div class="grid2">
+<div><label for="textPosition">Posição</label><select id="textPosition"><option value="bottom">Embaixo</option><option value="center">Centro</option><option value="top">Em cima</option></select></div>
+<div><label for="textSize">Tamanho do texto</label><select id="textSize"><option value="small">Pequeno</option><option value="medium" selected>Médio</option><option value="large">Grande</option></select></div>
+</div>
+<div class="status">O texto aparece na prévia de exportação. A prévia original acima não recebe a sobreposição.</div>
+</section>
+<section class="card">
+<h2>4. Música de fundo</h2>
+<label for="musicFile">Escolher música/áudio do celular (opcional)</label><input id="musicFile" type="file" accept="audio/*">
+<label for="musicVolume">Volume da música: <span class="value" id="volumeLabel">35%</span></label><input id="musicVolume" type="range" min="0" max="100" value="35">
+<div class="status" id="musicInfo">Nenhuma música selecionada.</div>
+<div class="note">A versão inicial usa o áudio escolhido como trilha. A mistura com o áudio original do vídeo depende do suporte do navegador; teste o arquivo exportado.</div>
+</section>
+<section class="card wide">
+<h2>5. Exportar vídeo</h2>
+<div class="actions"><button id="exportBtn" disabled>Exportar trecho</button><button id="downloadBtn" class="secondary" disabled>Baixar novamente</button></div>
+<progress id="progress" max="100" value="0"></progress>
+<div id="exportStatus" class="status">Importe um vídeo para ativar a exportação.</div>
+<div class="note"><strong>Limites desta primeira versão:</strong> exportação experimental pelo navegador usando MediaRecorder. Compatibilidade e formatos variam conforme o Android/Chrome. Não inclui ainda transições, múltiplas faixas, filtros, legendas automáticas nem projeto salvo. Para vídeos longos, o celular pode ficar lento ou sem memória.</div>
+</section>
+</main>
+<canvas id="renderCanvas"></canvas>
+<audio id="musicAudio" loop></audio>
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const video=$('video'), canvas=$('renderCanvas'), ctx=canvas.getContext('2d');
+let videoURL=null, musicURL=null, musicFile=null, outputURL=null, exporting=false, raf=0, recorder=null, chunks=[];
+const supported = () => !!(window.MediaRecorder && canvas.captureStream);
+const fmt = n => `${(Number(n)||0).toFixed(1)} s`;
+function setStatus(msg){$('exportStatus').textContent=msg}
+function enableEditor(on){['startRange','endRange','playBtn','resetBtn','exportBtn'].forEach(id=>$(id).disabled=!on)}
+function updateTrimLabels(){$('startLabel').textContent=fmt($('startRange').value);$('endLabel').textContent=fmt($('endRange').value)}
+$('videoFile').addEventListener('change', e=>{
+ const file=e.target.files && e.target.files[0]; if(!file)return;
+ if(videoURL)URL.revokeObjectURL(videoURL);
+ videoURL=URL.createObjectURL(file); video.src=videoURL; video.load();
+ $('videoInfo').textContent=`${file.name} • ${(file.size/1024/1024).toFixed(1)} MB`;
+ $('exportStatus').textContent='Carregando vídeo…';
+});
+video.addEventListener('loadedmetadata',()=>{
+ const d=Number.isFinite(video.duration)?video.duration:0;
+ $('startRange').max=d; $('endRange').max=d; $('startRange').value=0; $('endRange').value=d;
+ enableEditor(d>0); updateTrimLabels();
+ $('videoInfo').textContent += ` • duração ${fmt(d)} • ${video.videoWidth}×${video.videoHeight}`;
+ setStatus(supported()?'Pronto para testar a exportação.':'Este navegador não oferece os recursos necessários para exportar. Tente uma versão atual do Chrome.');
+});
+$('startRange').addEventListener('input',()=>{
+ let s=Number($('startRange').value), e=Number($('endRange').value);
+ if(s>=e){$('endRange').value=Math.min(Number($('endRange').max),s+0.1)}
+ updateTrimLabels(); if(video.currentTime<s||video.currentTime>Number($('endRange').value))video.currentTime=s;
+});
+$('endRange').addEventListener('input',()=>{
+ let s=Number($('startRange').value), e=Number($('endRange').value);
+ if(e<=s){$('startRange').value=Math.max(0,e-0.1)}
+ updateTrimLabels();
+});
+$('playBtn').addEventListener('click',async()=>{
+ const s=Number($('startRange').value), e=Number($('endRange').value);
+ if(video.currentTime<s||video.currentTime>=e)video.currentTime=s;
+ try{await video.play()}catch(err){setStatus('Toque no botão de reprodução do próprio vídeo para iniciar.')}
+});
+video.addEventListener('timeupdate',()=>{
+ if(!exporting && !video.paused && video.currentTime>=Number($('endRange').value)){video.pause();video.currentTime=Number($('startRange').value)}
+});
+$('musicFile').addEventListener('change',e=>{
+ const f=e.target.files&&e.target.files[0];if(!f)return;
+ if(musicURL)URL.revokeObjectURL(musicURL);
+ musicFile=f;musicURL=URL.createObjectURL(f);$('musicAudio').src=musicURL;
+ $('musicInfo').textContent=`${f.name} • ${(f.size/1024/1024).toFixed(1)} MB`;
+});
+$('musicVolume').addEventListener('input',()=>{$('volumeLabel').textContent=$('musicVolume').value+'%';$('musicAudio').volume=Number($('musicVolume').value)/100});
+$('resetBtn').addEventListener('click',()=>{
+ video.pause();video.removeAttribute('src');video.load();
+ if(videoURL)URL.revokeObjectURL(videoURL);videoURL=null;
+ $('videoFile').value='';$('musicFile').value='';$('overlayText').value='';
+ if(musicURL)URL.revokeObjectURL(musicURL);musicURL=null;musicFile=null;$('musicAudio').removeAttribute('src');
+ if(outputURL)URL.revokeObjectURL(outputURL);outputURL=null;$('downloadBtn').disabled=true;
+ $('videoInfo').textContent='Escolha um vídeo para começar. O arquivo fica no seu dispositivo.';
+ $('musicInfo').textContent='Nenhuma música selecionada.';enableEditor(false);setStatus('Importe um vídeo para ativar a exportação.');
+});
+function drawFrame(){
+ if(!video.videoWidth||!video.videoHeight)return;
+ const w=video.videoWidth,h=video.videoHeight;
+ if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}
+ ctx.drawImage(video,0,0,w,h);
+ const text=$('overlayText').value.trim();
+ if(text){
+  const size=$('textSize').value==='small'?Math.max(20,w*.035):$('textSize').value==='large'?Math.max(36,w*.065):Math.max(28,w*.05);
+  ctx.font=`700 ${size}px system-ui, sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+  const maxWidth=w*.88;let lines=[], words=text.split(/\s+/), line='';
+  for(const word of words){const test=line?line+' '+word:word;if(ctx.measureText(test).width>maxWidth&&line){lines.push(line);line=word}else line=test}if(line)lines.push(line);
+  const lineH=size*1.25,totalH=lines.length*lineH;
+  let y=$('textPosition').value==='top'?h*.1+totalH/2:$('textPosition').value==='center'?h/2:h*.88-totalH/2;
+  ctx.lineJoin='round';ctx.strokeStyle='rgba(0,0,0,.85)';ctx.lineWidth=Math.max(3,size*.12);ctx.fillStyle='#fff';
+  lines.forEach((l,i)=>{const yy=y+(i-(lines.length-1)/2)*lineH;ctx.strokeText(l,w/2,yy,maxWidth);ctx.fillText(l,w/2,yy,maxWidth)});
+ }
+}
+async function wait(ms){return new Promise(r=>setTimeout(r,ms))}
+$('exportBtn').addEventListener('click',async()=>{
+ if(exporting)return;
+ if(!supported()){setStatus('Exportação não suportada neste navegador. Atualize o Chrome ou teste em outro navegador compatível.');return}
+ const start=Number($('startRange').value),end=Number($('endRange').value);
+ if(end<=start){setStatus('Escolha um intervalo válido.');return}
+ if(end-start>180){setStatus('Para evitar travamentos nesta versão, exporte no máximo 3 minutos por vez.');return}
+ exporting=true;$('exportBtn').disabled=true;$('progress').style.display='block';$('progress').value=0;
+ setStatus('Preparando exportação… mantenha esta página aberta.');
+ const wasPaused=video.paused, oldTime=video.currentTime;
+ try{
+  video.pause();video.currentTime=start;
+  await new Promise((resolve,reject)=>{const ok=()=>{video.removeEventListener('seeked',ok);resolve()};video.addEventListener('seeked',ok,{once:true});setTimeout(()=>reject(new Error('O vídeo demorou para preparar.')),8000)});
+  const stream=canvas.captureStream(30);
+  let audioCtx=null, musicSource=null, dest=null;
+  if(musicURL){
+   const AC=window.AudioContext||window.webkitAudioContext;
+   if(AC){
+    audioCtx=new AC();await audioCtx.resume();dest=audioCtx.createMediaStreamDestination();
+    musicSource=audioCtx.createMediaElementSource($('musicAudio'));
+    const gain=audioCtx.createGain();gain.gain.value=Number($('musicVolume').value)/100;
+    musicSource.connect(gain);gain.connect(dest);
+    dest.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
+   }
+  }
+  let mime='video/webm;codecs=vp9,opus';
+  if(!MediaRecorder.isTypeSupported(mime))mime='video/webm;codecs=vp8,opus';
+  if(!MediaRecorder.isTypeSupported(mime))mime='video/webm';
+  chunks=[];recorder=new MediaRecorder(stream,{mimeType:mime});
+  recorder.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
+  const done=new Promise((resolve,reject)=>{recorder.onstop=resolve;recorder.onerror=()=>reject(new Error('Falha durante a gravação'))});
+  const music=$('musicAudio');
+  if(musicURL){music.currentTime=0;music.volume=1;await music.play().catch(()=>{});}
+  recorder.start(250);
+  const render=()=>{
+   if(!exporting)return;
+   drawFrame();
+   const pct=Math.min(99,((video.currentTime-start)/(end-start))*100);$('progress').value=pct;
+   if(video.currentTime>=end){video.pause();if(recorder&&recorder.state!=='inactive')recorder.stop();return}
+   raf=requestAnimationFrame(render);
+  };
+  video.muted=true;await video.play();render();
+  await done;
+  cancelAnimationFrame(raf);music.pause();video.muted=false;
+  if(audioCtx)await audioCtx.close();
+  stream.getTracks().forEach(t=>t.stop());
+  const blob=new Blob(chunks,{type:recorder.mimeType||'video/webm'});
+  if(outputURL)URL.revokeObjectURL(outputURL);outputURL=URL.createObjectURL(blob);
+  $('downloadBtn').disabled=false;$('progress').value=100;
+  const a=document.createElement('a');a.href=outputURL;a.download='clipmaster-video.webm';document.body.appendChild(a);a.click();a.remove();
+  setStatus(`Exportação concluída. Arquivo WebM • ${(blob.size/1024/1024).toFixed(1)} MB. Se o áudio não sair como esperado, teste em outro navegador compatível.`);
+ }catch(err){
+  setStatus('Não foi possível exportar neste aparelho/navegador: '+(err&&err.message?err.message:'erro desconhecido')+'. O projeto e os arquivos originais não foram alterados.');
+ }finally{
+  cancelAnimationFrame(raf);exporting=false;$('exportBtn').disabled=false;$('progress').style.display='block';
+  video.muted=false;try{if(videoURL)video.currentTime=Math.min(oldTime,Number($('endRange').value));if(!wasPaused)await video.play()}catch(e){}
+  try{$('musicAudio').pause()}catch(e){}
+ }
+});
+$('downloadBtn').addEventListener('click',()=>{
+ if(!outputURL)return;const a=document.createElement('a');a.href=outputURL;a.download='clipmaster-video.webm';a.click();
+});
+})();
+</script>
+</body>
+</html>
